@@ -26,11 +26,10 @@ To run the adblock update process you can add it into cron, for example:
 
 in this file add:
 
-`
+```
 #m h dom mon dow user  command
-
   1  6 *   *   *   root  /usr/bin/adblock >/dev/null 2>&1
- ` 
+ ```
 
 ## Installation
 * download all files in this repositiry

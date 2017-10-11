@@ -28,6 +28,7 @@ in this file add:
 
 `
 #m h dom mon dow user  command
+
   1  6 *   *   *   root  /usr/bin/adblock >/dev/null 2>&1
  ` 
 

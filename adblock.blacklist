@@ -1,0 +1,62 @@
+##############################################
+# Manual Blacklist
+#
+# Manually add hostnames into this file that
+# should be blacklisted, even if these are not
+# downloaded via one of the blacklists.
+#
+##############################################
+lb-adselect-1417292246.eu-west-1.elb.amazonaws.com
+
+auto.search.msn.com             # Microsoft uses this server to redirect
+                                # mistyped URLs to search engines. They
+                                # log all such errors.
+                                
+sitefinder.verisign.com	        # Verisign has joined the game 
+sitefinder-idn.verisign.com     # of trying to hijack mistyped
+                                # URLs to their site. 
+                                # May break iOS Game Center.                        
+
+s0.2mdn.net		                # This may interfere with some streaming 
+                                # video on sites such as cbc.ca
+ad.doubleclick.net              # This may interefere with www.sears.com
+                                # and potentially other sites. 
+
+ebay.doubleclick.net		    # may interfere with ebay
+google-analytics.com			# breaks some sites
+www.google-analytics.com		# breaks some sites
+ssl.google-analytics.com
+www.google-analytics.l.google.com
+www.googletagservices.com		#interferes with techrepublic
+partner.googleadservices.com	# Interferes with CWTV.com
+
+stat.livejournal.com		    # There are reports that this may mess 
+                                # up CSS on livejournal
+stats.surfaid.ihost.com	        # This has been known cause 
+                                # problems with NPR.org
+ads.imeem.com		            # Seems to interfere with the functioning of imeem.com
+
+nl.sitestat.com	                # may interfere with duo.nl
+
+pro.hit.gemius.pl	            # May interfere with some video sites
+
+track.hulu.com	                # Uncomment to block Hulu.
+t2.hulu.com		                # Uncomment to block Hulu.
+ad.hulu.com		                # Uncomment to block Hulu.
+ads.hulu.com		            # Uncomment to block Hulu.
+
+pubads.g.doubleclick.net	    #interferes with video on cwtv.com
+ad.ca.doubleclick.net	        #intereferes with video on globeandmail.com
+
+ads.channel4.com
+adfarm.mediaplex.com		    # may interfere with ebay
+ads.msn.com			            #This may cause problems with zone.msn.com
+ak.imgfarm.com		            # may cause problems with iwon.com
+click.linksynergy.com
+global.msads.net		        #This may cause problems with zone.msn.com
+lads.myspace.com		        # blocks myspace media/video players
+refer.ccbill.com		        #affiliate program, to add it back, remove the #
+rmads.msn.com			        #This may cause problems with zone.msn.com
+www.apmebf.com		            #qksrv
+www.tkqlhce.com		            #qksrv
+transfer.go.com		            #may interfere with Disney websites

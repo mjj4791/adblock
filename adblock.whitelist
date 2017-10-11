@@ -1,0 +1,21 @@
+##############################################
+# Manual whitellist
+#
+# Add dns names/hostanmes in this file
+# that should NOT be blacklisted, even
+# if these are downloaded from one (or more)
+# of the blacklists.
+#
+##############################################
+#cdn.videoplaza.tv
+#google-analytics.com
+#google-analytics.l
+
+2mdn.net
+s0.2mdn.net
+s0-2mdn-net.l.google.com
+postcodeloterij.nl
+marktplaats.nl
+i.imgur.com
+#gfycat.com
+#goo.gl

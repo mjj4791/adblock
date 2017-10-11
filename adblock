@@ -1,0 +1,630 @@
+#!/bin/bash
+################################
+# Version 20170910
+# - improved logging
+################################
+# Version 20170905
+# - added start, stop and status commands
+################################
+# Version 20179101
+# - integrated into one script
+# - config in /etc/adblock
+################################
+# Version 20170822
+# - add tld compression
+################################
+# Version 20160624
+# - whitelisting done on combined list and no longer on downloaded lists
+#   (therefore it also whitelists dns entries present in the previous run, 
+#   for which the list is now unchanged (and not downloaded))
+################################
+# Version 20160623
+# - fixed not working include when run from cron.daily (must use cron.d)!
+#
+################################
+
+
+################################
+# DO NOT MODIFY THIS FILE
+#
+# Modify the settings using
+# /etc/adblock/adblock.conf ONLY
+################################
+
+# min diskspace required to run:
+adb_minspace=12000
+
+# remove redundant subdomains from the file (0, 1):
+adb_tldcompression=1
+
+# log messages into log file (0, 1):
+adb_log2file=1
+
+################################
+adb_scriptver="20170905"
+adb_pid=${$}
+adb_action=$1
+adb_confdir=/etc/adblock
+adb_conffile=${adb_confdir}/adblock.conf 
+adb_pidfile=/var/run/adblock_update.pid
+
+adb_listsdir=${adb_confdir}/lists
+
+adb_whitelist=${adb_confdir}/adblock.whitelist
+adb_blacklist=${adb_confdir}/adblock.blacklist
+adb_whitelist_rset="\$1 ~/^([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower(\$1)}"
+adb_logfile=/var/log/adblock.log
+
+########################
+# for dnsmasq:
+adb_dnsdir=/etc/dnsmasq.d
+adb_dnshidedir=${adb_dnsdir}/.adb_hidden
+adb_dnsformat='{ print "local=/"$0"/" }'
+#===========
+adb_dnsfilename=adblock.conf
+adb_dnsfile=${adb_dnsdir}/${adb_dnsfilename}
+adb_dnshidefile=${adb_dnshidedir}/adblock.conf
+adb_restart=dnsmasq
+
+#===========
+# default config (if no $adb_conffile exists)...
+adb_sources='adaway'
+
+enabled_adaway=1
+adb_src_adaway='https://adaway.org/hosts.txt'
+adb_src_rset_adaway='{sub(/\r$/,"")};$0 ~/^127\.0\.0\.1[ \t]+([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($2)}'
+adb_src_desc_adaway='focus on mobile ads, infrequent updates, approx. 400 entries'
+
+enabled_blacklist=0
+adb_src_blacklist="${adb_blacklist}"
+adb_src_rset_blacklist='{sub(/\r$/,"")};$1 ~/^([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($1)}'
+adb_src_desc_blacklist='Manual blocklist'
+#===========
+
+##########################################
+# f_log: log messages to stdout and syslog
+f_debug() {
+    f_log 'DEBUG' "$1" $2 
+}
+f_info() {
+    f_log 'INFO' "$1" $2
+}
+f_warning() {
+    f_log 'WARNING' "$1" $2
+}
+f_error() {
+    f_log 'ERROR' "$1" $2
+}
+f_log() {
+    local log_parm
+    local log_msg="${2}"
+    local log_stdout=${3}
+    local class="${1}"
+    local lastrun="$(date "+%d.%m.%Y %H:%M:%S")"
+
+    # check for terminal session
+    #
+    if [ -t 1 ] && [ "X${log_stdout}" != "X" ]; then
+        # if opened on console, log to stdout as well....
+        #log_parm="-s"
+        echo "${log_msg}"
+    fi
+
+    # log to different output devices and set log class accordingly
+    #
+    if [ -n "${log_msg}" ]; then
+        if [ $((rc)) -gt 0 ]; then
+            class="ERROR" 
+        fi
+        logger ${log_parm} -t "adblock[${adb_pid}]:${class}" "${log_msg}" 2>&1
+        if [ ${adb_log2file} -eq 1 ]; then
+            echo "${lastrun} : adblock[${adb_pid}] : ${class} : ${log_msg}" >> ${adb_logfile}
+        fi
+    fi
+}
+
+# f_envcheck: check/prepare environment
+f_envcheck() {
+    if [ ${adb_log2file} -eq 1 ]; then
+        > "${adb_logfile}"
+    fi
+    # start normal processing/logging
+    #
+    f_info "Adblock (Version ${adb_scriptver}, $(/bin/date "+%d.%m.%Y %H:%M:%S"))" 1
+
+    # check dnsmasq
+    if [ ! -d $adb_dnsdir ]; then
+        f_error "Dnsmasq not found ('$adb_dnsdir' not found)!"
+        f_exit
+    fi
+
+    # curl parameters:
+    adb_fetch=$(which curl)
+    if [ "X${adb_fetch}" == "X" ]; then
+        # curl not found!
+        f_error "Curl not found!"
+        f_exit
+    else
+        fetch_parm="--fail --silent --retry 5 --max-redirs 5 --user-agent 'Mozilla/5.0'"
+        fetch_parm="${fetch_parm} --insecure"
+    fi
+    
+    # check adblock temp directory
+    #
+    adb_tmpdir="$(mktemp -p /tmp -d)"
+    adb_tmpfile="$(mktemp -p ${adb_tmpdir} -tu)"
+    adb_tmpfile2="$(mktemp  -p ${adb_tmpdir} -tu)"
+    mkdir -p "${adb_dnshidedir}" 2>&1 >/dev/null
+    mkdir -p "${adb_confdir}" 2>&1 >/dev/null
+    mkdir -p "${adb_listsdir}" 2>&1 >/dev/null
+    if [ -n "${adb_tmpdir}" ] && [ -d "${adb_tmpdir}" ]; then
+        f_space "${adb_tmpdir}"
+        if [ "${space_ok}" = "false" ]; then
+            if [ $((av_space)) -le 2000 ]; then
+                rc=105
+                f_error "Not enough free space in '${adb_tmpdir}' (avail. ${av_space} kb)"
+                f_exit
+            else
+                f_error "Not enough free space to handle all block list sources at once in '${adb_tmpdir}' (avail. ${av_space} kb)"
+                f_exit
+            fi
+        fi
+    else
+        rc=110
+        f_error "Temp directory not found ('${adb_tmpdir}')!"
+        f_exit
+    fi
+    
+    # check whitelist entries
+    #
+    if [ -s "${adb_whitelist}" ]; then
+        awk "${adb_whitelist_rset}" "${adb_whitelist}" > "${adb_tmpdir}/tmp.whitelist"
+        #echo "${adb_tmpdir}/tmp.whitelist"
+        #cat "${adb_tmpdir}/tmp.whitelist"
+    fi
+
+}
+
+# f_space: check mount points/space requirements
+f_space() {
+    local mp="${1}"
+
+    if [ -d "${mp}" ]; then
+        av_space="$(df "${mp}" | tail -n1 | awk '{printf $4}')"
+        if [ $((av_space)) -lt $((adb_minspace)) ]; then
+            space_ok="false"
+        fi
+    fi
+}
+
+# f_rmtmp: remove temporary files
+f_rmtmp() {
+    rm -f "${adb_tmpfile}" 2>&1 >/dev/null
+    rm -f "${adb_tmpfile2}" 2>&1 >/dev/null
+	rm -f "${adb_tmpdir}/tmp.whitelist" 2>&1 >/dev/null
+    rm -rf "${adb_tmpdir}/*" 2>&1 >/dev/null
+	rmdir "${adb_tmpdir}" 2>&1 >/dev/null
+}
+# f_rmdns: remove all created dns files
+f_rmdns() {
+    rm -f "${adb_dnsfile}.bak" 2>&1 >/dev/null
+    rm -f "${adb_dnsfile}" 2>&1 >/dev/null
+    if [ -d "${adb_dnshidedir}" ]; then
+         rm -f "${adb_dnshidedir}/*" 2>&1 >/dev/null
+         rmdir "${adb_dnshidedir}" 2>&1 >/dev/null
+    fi
+}
+
+
+# f_exit: delete temporary files, generate statistics and exit
+f_exit() {
+    local lastrun="$(date "+%d.%m.%Y %H:%M:%S")"
+    
+    f_rmtmp
+    # final log message and iptables statistics
+    #
+    if [ $((rc)) -eq 0 ]; then
+        f_info "Domain adblock processing finished successfully (${adb_scriptver}, ${lastrun})"
+    elif [ $((rc)) -gt 0 ]; then
+        f_error "Domain adblock processing failed (${adb_scriptver}, ${lastrun}, ${rc})"
+    else
+        rc=0
+    fi
+    rm -f "${adb_pidfile}"
+    exit ${rc}
+}
+
+# f_revertconfig: reject the new config file and revert the previous one
+f_revertconfig() {
+    if [ -f "${adb_dnsfile}.bak" ]; then
+        f_warning "Rejecting current ${adb_restart} config (moving ${adb_dnsfile} to ${adb_dnsfile}.err)..."
+        mv "${adb_dnsfile}" "${adb_dnsfile}.err" 2>&1 >/dev/null
+        f_info "Reverting ${adb_restart} config to previous settings (moving ${adb_dnsfile}.bak to ${adb_dnsfile})..."
+        mv "${adb_dnsfile}.bak" "${adb_dnsfile}" 2>&1 >/dev/null
+        f_info "Config reverted."
+    else
+        f_error "Unable to revert config; configbackup file not found (${adb_dnsfile}.bak)!" 1
+    fi
+}
+
+# f_tldcompression: top level domain compression
+f_tldcompression() {
+    local source="${1}" temp="${adb_tmpfile}"
+
+    awk -F "." '{for(f=NF;f > 1;f--) printf "%s.", $f;print $1}' "${source}" 2>/dev/null | sort -u > "${temp}"
+    awk '{if(NR==1){tld=$NF};while(getline){if($NF !~ tld"\\."){print tld;tld=$NF}}print tld}' "${temp}" 2>/dev/null > "${source}"
+    awk -F "." '{for(f=NF;f > 1;f--) printf "%s.", $f;print $1}' "${source}" 2>/dev/null > "${temp}"
+    sort -u "${temp}" > "${source}"
+}
+
+# f_switch: suspend/resume adblock processing
+f_switch() {
+    local source target status mode="${1}"
+    
+    if [ -d "${adb_dnshidedir}" ]; then
+        if [ -s "${adb_dnsfile}" ] && [ "${mode}" = "suspend" ]; then
+            source="${adb_dnsfile}"
+            target="${adb_dnshidedir}"
+            status="suspended"
+        elif [ -s "${adb_dnshidefile}" ] && [ "${mode}" = "resume" ]; then
+            source="${adb_dnshidefile}"
+            target="${adb_dnsdir}"
+            status="resumed"
+        fi
+        if [ -n "${status}" ]; then
+            mv -f "${source}" "${target}"
+            f_restartservice
+            f_info "Adblock processing ${status}" 1
+        fi
+    fi
+}
+
+# f_status: query adblock status
+f_status() {
+    if [ -s "${adb_dnsfile}" ]; then
+        status="started"
+    elif [ -s "${adb_dnshidefile}" ]; then
+        status="suspended"
+    else
+        status="stopped"
+    fi
+    
+    f_info "Adblock status is: ${status}." 1
+    
+    if [ "X${status}" == "Xstarted" ]; then
+        count="$(cat "${adb_dnsfile}" | wc -l)"
+        f_info "   $count domains blocked." 1
+    fi
+}
+
+# f_query: query block list for certain (sub-)domains
+f_query() {
+    local search result cnt
+    local domain="${1}"
+    local tld="${domain#*.}"
+
+    if [ ! -s "${adb_dnsfile}" ]; then
+         printf "%s\n" "::: no active block list found, please start / resume adblock first"
+    elif [ -z "${domain}" ] || [ "${domain}" = "${tld}" ]; then
+        printf "%s\n" "::: invalid domain input, please submit a specific (sub-)domain, e.g. 'www.abc.xyz'"
+    else
+        cd "${adb_dnsdir}"
+        while [ "${domain}" != "${tld}" ]
+        do
+            search="${domain//./\.}"
+            result="$(grep -Hm5 "[/\"\.]${search}[/\"]" "${adb_dnsfilename}" | awk -F ':|=|/|\"' '{printf("  + %s\n",$4)}')"
+            printf "%s\n" "::: results for (sub-)domain '${domain}' (max. 5)"
+            printf "%s\n" "${result:="  - no match"}"
+            domain="${tld}"
+            tld="${domain#*.}"
+        done
+    fi
+}
+
+# f_restartservice: restart dns service
+f_restartservice() {
+    WAIT=10s
+    f_info "Restarting ${adb_restart} service..." 1
+    service ${adb_restart} restart > /dev/null 2>&1
+    f_info "Waiting $WAIT for ${adb_restart} to initialize..." 1
+    sleep $WAIT
+    
+    if [ "${adb_restart}" == "bind9" ]; then
+        PID=`pidof named`
+    else
+        PID=`pidof dnsmasq`
+    fi
+    
+    if [ "x$PID" != "x" ]; then
+        #restarted ok
+        f_info "${adb_restart} restarted and running with pid $PID." 1
+    else
+        rc=200
+        f_error "${adb_restart} not running; reverting to old config!"
+        f_revertconfig
+        service ${adb_restart} restart > /dev/null 2>&1
+        f_info "Waiting $WAIT for ${adb_restart} to initialize..." 1
+        sleep $WAIT
+        if [ "${adb_restart}" == "bind9" ]; then
+            #echo pidof named
+            PID=`pidof named`
+        else
+            #pidof dnsmasq
+            PID=`pidof dnsmasq`
+        fi
+        if [ "x$PID" != "x" ]; then
+            #bind is running
+            f_info "${adb_restart} reverted, restarted and running with pid $PID." 1
+        else
+            f_error "${adb_restart} reverted, but still NOT RUNNING!" 1
+        fi
+    fi
+}
+
+# f_download: (down)load all lists and store for processing
+f_download() {
+    f_info "Downloading blocklists..." 1
+    for src_name in ${adb_sources}
+    do
+        f_info "=> Processing source '${src_name}'"
+        
+        # check disabled sources
+        #
+        eval "enabled=\"\${enabled_${src_name}}\""
+        if [ "${enabled}" = "0" ]; then
+            # disabled list; clean up:
+            if [ -f  "${adb_listsdir}/${src_name}" ]; then
+                rm -f "${adb_listsdir}/${src_name}" 2>&1 > /dev/null
+                f_info "=> Disabled source '${src_name}' and removed cached list (${adb_listsdir}/${src_name})."
+            fi
+            continue
+        fi
+
+        eval "url=\"\${adb_src_${src_name}}\""
+        eval "src_rset=\"\${adb_src_rset_${src_name}}\""
+        
+        # check 'url' and 'src_rset' values
+        #
+        if [ -z "${url}" ] || [ -z "${src_rset}" ]; then
+            f_warning "   broken source configuration, skipped"
+            continue
+        fi
+
+        # download only block list with newer/updated timestamp
+        #
+        rm -f "${adb_tmpfile}" 2>&1 > /dev/null
+        if [ "${src_name}" == "blacklist" ]; then
+            if [ -s "${url}" ]; then
+                cat ${url} > "${adb_tmpfile}"
+            else
+                f_info "   list empty or non-existent, skipped"
+                continue
+            fi
+        elif [ "${src_name}" == "shalla" ]; then
+            shalla_archive="${adb_tmpdir}/shallalist.tar.gz"
+            
+            if [ -f  "${adb_listsdir}/${src_name}" ]; then
+                "${adb_fetch}" ${fetch_parm} -z ${adb_listsdir}/${src_name} --output "${shalla_archive}" "${url}"
+            else
+                "${adb_fetch}" ${fetch_parm} --output "${shalla_archive}" "${url}"
+            fi
+            rc=${?}
+            if [ $((rc)) -eq 0 ] && [ -s "${shalla_archive}" ]; then
+                > "${adb_tmpfile}"
+                for category in ${adb_src_shalla_src}
+                do
+                    tar -xOzf "${shalla_archive}" BL/${category}/domains >> "${adb_tmpfile}"
+                    rc=${?}
+                    if [ $((rc)) -ne 0 ]; then
+                        f_error "   archive extraction failed (${category})"
+                        break
+                    fi
+                done
+                rm -rf "${adb_tmpdir}/BL"
+                rm -f "${shalla_archive}"
+            elif [ $((rc)) -eq 0 ]; then
+                # OK, but no file: not changed
+                > "${adb_tmpfile}"
+            fi
+        else
+            if [ -f  "${adb_listsdir}/${src_name}" ]; then
+                ${adb_fetch} ${fetch_parm} -z ${adb_listsdir}/${src_name} --output ${adb_tmpfile} ${url}
+            else
+                ${adb_fetch} ${fetch_parm} --output ${adb_tmpfile} ${url}
+            fi
+        fi
+        rc=${?}
+        
+        # check download result and prepare domain output
+        #
+        if [ $((rc)) -eq 0 ] && [ -s "${adb_tmpfile}" ]; then
+            rm -f "${adb_tmpfile2}" 2>&1 > /dev/null
+            count="$(cat "${adb_tmpfile}" | awk "${src_rset}" | tee "${adb_tmpfile2}" | wc -l)"
+            
+            f_info "   source download finished (${count} entries)"
+        elif [ $((rc)) -eq 0 ]; then
+            # empty list downloaded:
+            if [ -s  "${adb_listsdir}/${src_name}" ]; then
+                f_info "   list not changed or empty source download, using cached list"
+            else
+                f_warning "   list not downloaded or empty source download, list SKIPPED"
+            fi
+            continue
+        else
+            rc=0
+            f_error "   source download failed, skipped"
+            continue
+        fi
+        
+        # store downloaded adlists in cache/lists folder for next run
+        if [ $((count)) -gt 0 ] && [ -s "${adb_tmpfile2}" ]; then
+            cp "${adb_tmpfile2}" "${adb_listsdir}/${src_name}"
+            rm -f "${adb_tmpfile2}"
+            f_info "   domain merging finished (list cached in ${adb_listsdir}/${src_name})."
+        else
+            rm -f "${adb_tmpfile2}"
+            
+            f_warning "   empty domain input, skipped"
+            continue
+        fi
+    done
+}
+
+# f_process: process all stored list into one blocklistdomains
+f_process() {
+    # Combine all downloaded lists into one global block list 
+    # remove duplicate entries
+    f_info  "Loading blocklists..." 1
+    rm -f "${adb_tmpfile}" 2>&1 >/dev/null
+    if [ -s "${adb_tmpdir}/tmp.whitelist" ]; then
+        f_info "Combining all downloaded blocklists into a combined blacklist and whitelisting..."
+        count=$(cat ${adb_listsdir}/* | sort -u | grep -vf "${adb_tmpdir}/tmp.whitelist" | tee "${adb_tmpfile}" | wc -l)
+    else
+        f_info "Combining all downloaded blocklists into a combined blacklist..."
+        count=$(cat ${adb_listsdir}/* | sort -u | tee "${adb_tmpfile}" | wc -l)
+    fi
+    rc=${?}
+
+    if [ $count -ne 0 ]; then
+        if [ "X${adb_tldcompression}" = "X1" ]; then
+            f_info "   $count domains blocked; executing tldcompression..."
+            mv -f "${adb_tmpfile}" "${adb_tmpfile2}" 2>&1 >/dev/null
+            > "${adb_tmpfile}"
+            f_tldcompression "${adb_tmpfile2}"
+            count=$(cat ${adb_tmpfile} | wc -l)
+        fi
+        f_info "   $count domains blocked; creating bind zone file..."
+        count2="$(cat "${adb_tmpfile}" | awk "${adb_dnsformat}" | tee "${adb_tmpfile2}" | wc -l)"
+        
+        if [ $count -ne $count2 ]; then
+            rc=252
+            f_error "   Error creating zonefile (check variable adb_dnsformat); dns record lost while formatting ($count2<>$count)!"
+            f_exit
+        else
+            f_info "   changing ${adb_restart} blocklistdomains processed; ${adb_dnsfile}..."
+            if [ -f "${adb_dnsfile}" ]; then
+                mv "${adb_dnsfile}" "${adb_dnsfile}.bak" 2>&1 >/dev/null
+            fi
+            if [ -f "${adb_tmpfile2}" ]; then
+                mv "${adb_tmpfile2}" "${adb_dnsfile}" 2>&1 >/dev/null
+            fi
+            f_restartservice
+        fi
+    else
+        rc=253
+        f_error "Combined file is empty!"
+        f_exit
+    fi
+}
+
+
+# f_usage: show usage information
+f_usage() {
+    f_info  "$0 [command] [parameters]" 1
+    f_info "" 1
+    f_info 'where <command> (optional):' 1
+    f_info '  start     Start adblocking' 1
+    f_info '  stop      Stop adblocking (remove all blocked domains)' 1
+    f_info '  status    Show start/stop status' 1
+    f_info '  reload    Reload all downloaded blocklists and reapply the whitelisted sites.' 1
+    f_info '  suspend   Temporarily suspend adblocking.' 1
+    f_info '  resume    Resume adblocking.' 1
+    f_info '  query     Query adblock lists for domain name.' 1
+    f_info '            parameter: domain name' 1
+    f_info '  help      Show this help.' 1
+    f_info '  *         Download and use all blacklists.' 1
+}
+
+# f_checkuser: check executing user
+f_checkuser() {
+	USR=`whoami`
+	if [ $USR != 'root' ]; then
+		echo "This script must be executed by user 'root' (you are $USR)!"
+		echo
+		echo "Please execute as user root, or execute:"
+		echo "sudo $0 $*"
+		exit 1
+	fi
+}
+
+# f_version: echo script version
+f_version() {
+    echo $adb_scriptver
+}
+
+
+f_checkuser
+if [ -r "${adb_pidfile}" ]; then
+    still_running=`ps -ef | grep "$(cat ${adb_pidfile})" | grep -v grep | wc -l`
+    if [ $still_running -eq -0 ]; then
+        # process no longer running; remove the pid file
+        rm -f ${adb_pidfile}
+    fi    
+fi
+if [ -r "${adb_pidfile}" ]; then
+    rc=255
+    logger -s -t "adblock[${adb_pid}] ERROR" "adblock_update service already running ($(cat ${adb_pidfile}))"
+    exit ${rc}
+else
+    printf "${adb_pid}" > "${adb_pidfile}"
+    if [ -r "${adb_conffile}" ] && [ -s "${adb_conffile}" ]; then
+        # include config file
+        . "${adb_conffile}"
+    fi
+fi
+# call trap function on error signals (HUP, INT, QUIT, BUS, SEGV, TERM)
+#
+trap "rc=250; f_info 'error signal received/trapped'; f_exit" 1 2 3 10 11 15
+
+
+# handle different adblock actions
+#
+f_envcheck
+case "${adb_action}" in
+    stop)
+        f_info "Stopping adblock..." 1
+        f_rmdns
+        f_restartservice
+        ;;
+    reload)
+        f_process
+        ;;
+    suspend)
+        f_info "Suspending..." 1
+        f_switch suspend
+        ;;
+    resume)
+        f_info "Resuming..." 1
+        f_switch resume
+        ;;
+    query)
+        f_query "${2}"
+        ;;
+    status)
+        f_status
+        ;;
+    help)
+        f_usage
+        ;;
+    --help)
+        f_usage
+        ;;
+    -h)
+        f_usage
+        ;;
+    version)
+        f_version
+        ;;
+    --version)
+        f_version
+        ;;
+    *)
+        f_download
+        f_process
+        ;;
+esac
+
+# all done
+rc=0
+f_info "done."
+f_exit

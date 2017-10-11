@@ -1,5 +1,5 @@
 ##############################################
-# Manual whitellist
+# Manual whitelist
 #
 # Add dns names/hostanmes in this file
 # that should NOT be blacklisted, even
@@ -17,5 +17,3 @@ s0-2mdn-net.l.google.com
 postcodeloterij.nl
 marktplaats.nl
 i.imgur.com
-#gfycat.com
-#goo.gl

@@ -46,7 +46,7 @@ in this file add:
 ## Configuration
 All configuration is located in `/etc/adblock/adblock.conf`.
 
-* **#adb_tldcompression** : remove subdomains if the top level domain is already blocked
+* **adb_tldcompression** : remove subdomains if the top level domain is already blocked
   * 0: disable toplevel domain compression
   * **1**: enable toplevel domain compression
 * **adb_log2file** : Log to logfile as well (`/var/log/adblock.log`). Next to a logfile, all logging will be sent to syslog by default.
@@ -80,5 +80,18 @@ target_file_detect=
 target_file_dir=/tmp
 ```
 
-
 ### Adding Sources
+In the config file you can add as many blockllist sources you want.
+Each enabled and configured source will be downloaded and combined into one large list of blocked domains.
+
+for each source, configure the following parameters:
+* **enabled\__source_** : enable (1) or disable (0) this source blocklist
+* **adb\_src\__source_** : the url to download the blocklist for this source
+* **adb\_src\_rset\__source_** : an `awk`  comattible command to transform the lines in the source file into a clean list of domain names (one name per row).
+* **enabled\__source_=1
+* **adb\_src\__source_='https://adaway.org/hosts.txt'
+adb_src_rset_\adaway='{sub(/\r$/,"")};$0 ~/^127\.0\.0\.1[ \t]+([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($2)}'
+adb_src_desc_adaway=enabled_adaway=1
+adb_src_adaway='https://adaway.org/hosts.txt'
+adb_src_rset_adaway='{sub(/\r$/,"")};$0 ~/^127\.0\.0\.1[ \t]+([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($2)}'
+adb_src_desc_

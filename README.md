@@ -103,7 +103,7 @@ All configuration is located in `/etc/adblock/adblock.conf`.
 * **adb_targets** : a space separated list of all targets to execute
   * **file** : this is the default target (as part of adblock itself)
   * **_other_** : add any other target defined in this config file (see [adding targets](#adding-targets))
-* **adb_sources** : a space separated list of all suorces to use for downloading all blocklists (see [adding sources](#adding-sources))
+* **adb_sources** : a space separated list of all sources to use for downloading all blocklists (see [adding sources](#adding-sources))
 
 ### Adding Targets
 You can add multiple targets in the adblock config file. An output file of the blocked domains will we created for each target specifically, based on the created list of blocked domain names.
@@ -148,7 +148,7 @@ Each enabled and configured source will be downloaded and combined into one larg
 for each source, configure the following parameters:
 * **enabled\__source_** : enable (1) or disable (0) this source blocklist
 * **adb\_src\__source_** : the url to download the blocklist for this source
-* **adb\_src\_rset\__source_** : an `awk`  comattible command to transform the lines in the source file into a clean list of domain names (one name per row).
+* **adb\_src\_rset\__source_** : an `awk`  compatible command to transform the lines in the source file into a clean list of domain names (one name per row).
 * **adb\_src\_desc\__source_** : a textual description for this source
 
 

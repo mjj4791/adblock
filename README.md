@@ -124,7 +124,21 @@ Name each of the parameters per target using this convention: target\__name_\__p
 ```
 target_file_enabled=1
 target_file_detect=
+target_file_format='{ print $0 }'
+target_file_filename=blocklist.conf
 target_file_dir=/tmp
+target_file_hidedir=
+target_file_restart=
+target_file_pid=
+
+target_dnsmasq_enabled=1
+target_dnsmasq_detect='which dnsmasq'
+target_dnsmasq_format='{ print "local=/"$0"/" }'
+target_dnsmasq_filename=adblock.conf
+target_dnsmasq_dir=/etc/dnsmasq.d
+target_dnsmasq_hidedir=/etc/dnsmasq.d/.adb_hidden/
+target_dnsmasq_restart='service dnsmasq restart'
+target_dnsmasq_pid='pidof dnsmasq'
 ```
 
 ### Adding Sources

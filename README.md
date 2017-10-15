@@ -2,7 +2,7 @@
 DNS based adblocker for linux/dnsmasq
 
 #### Blocklists
-The adblocker supports many blocklists by default, you are able to enable or disable them in the configuration, see [Configuration](#Configuration) below.
+The adblocker supports many blocklists by default, you are able to enable or disable them in the configuration, see [Configuration](# Configuration) below.
 
 The following blocklists can be consumed at this moment in time:
 * [AdAway](https://adaway.org/)

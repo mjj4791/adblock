@@ -149,7 +149,14 @@ for each source, configure the following parameters:
 * **enabled\__source_** : enable (1) or disable (0) this source blocklist
 * **adb\_src\__source_** : the url to download the blocklist for this source
 * **adb\_src\_rset\__source_** : an `awk`  comattible command to transform the lines in the source file into a clean list of domain names (one name per row).
-* **enabled\__source_** : enable (1) or disable (0) this source
-* **adb\_src\__source_** : url to download the source data
-* **adb\_src\_rset\__source_** : an `awk` compatible command to transform='{sub(/\r$/,"")};$0 ~/^127\.0\.0\.1[ \t]+([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($2)}'
 * **adb\_src\_desc\__source_** : a textual description for this source
+
+
+Name each of the parameters per source using the convention shown below:
+```
+enabled_adaway=1
+adb_src_adaway='https://adaway.org/hosts.txt'
+adb_src_rset_adaway='{sub(/\r$/,"")};$0 ~/^127\.0\.0\.1[ \t]+([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($2)}'
+adb_src_desc_adaway='focus on mobile ads, infrequent updates, approx. 400 entries'
+
+```

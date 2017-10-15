@@ -1,8 +1,8 @@
-# adblock
+#adblock
 DNS based adblocker for linux/dnsmasq
 
-#### Blocklists
-The adblocker supports many blocklists by default, you are able to enable or disable them in the configuration, see [Configuration](# Configuration) below.
+###Blocklists
+The adblocker supports many blocklists by default, you are able to enable or disable them in the configuration, see [Configuration](#Configuration) below.
 
 The following blocklists can be consumed at this moment in time:
 * [AdAway](https://adaway.org/)
@@ -40,17 +40,17 @@ The following blocklists can be consumed at this moment in time:
 * [ZeusTracker](https://zeustracker.abuse.ch)
 
 
-#### Whitelist
+####Whitelist
 Using the whitelist, you are able to whitelist domains that are blocked by one or more of the dowloaded blocklists. The domains listed in the whitelist will not get blocked; the whitelist gets applied after all blocklists are downaloded and combined into one big blocklist.
 
 The whitelist is located in `/etc/adblock/adblock.whitelist`. Domains you want to whitelist can be added one domain per line.
 
-#### Blacklist
+####Blacklist
 The blacklist is located in `/etc/adblock/adblock.blacklist`. Domains you want to blacklist manually can be added one domain per line.
 On order for the blacklist to be considered, you bave to enable the blacklist and add the blacklist file as a source in the `adb_sources`  setting (see below).
 
 
-## Usage
+##Usage
 The adblock process must be executed as root user (or using sudo).
 
 `  sudo /usr/bin/adblock [command] [parameters]`
@@ -66,13 +66,13 @@ where <command> (optional):
 * **help** : Show this help.
 * _else_ : Download and use all blacklists.
 
-## Installation
+##Installation
 * download all files in this repositiry
 * install by executing:
 
 `  sudo ./install.sh install`
 
-### Cron
+###Cron
 To run the adblock update process you can add it into cron, for example:
 
 `  vi /etc/cron.d/adblock`
@@ -84,13 +84,13 @@ in this file add:
   1  6 *   *   *   root  /usr/bin/adblock >/dev/null 2>&1
  ```
 
-## Remove
+##Remove
 * goto /etc/adblock
 * remove by executing
 
 `  sudo /etc/adblock/install.sh remove`
 
-## Configuration
+##Configuration
 All configuration is located in `/etc/adblock/adblock.conf`.
 
 * **adb_tldcompression** : remove subdomains if the top level domain is already blocked
@@ -105,7 +105,7 @@ All configuration is located in `/etc/adblock/adblock.conf`.
   * **_other_** : add any other target defined in this config file (see _adding targets_)
 * **adb_sources** : a space separated list of all suorces to use for downloading all blocklists (see _adding sources_)
 
-### Adding Targets
+###Adding Targets
 You can add multiple targets in the adblock config file. An output file of the blocked domains will we created for each target specifically, based on the created list of blocked domain names.
 
 Per target you configure the following parameters:
@@ -141,7 +141,7 @@ target_dnsmasq_restart='service dnsmasq restart'
 target_dnsmasq_pid='pidof dnsmasq'
 ```
 
-### Adding Sources
+###Adding Sources
 In the config file you can add as many blockllist sources you want.
 Each enabled and configured source will be downloaded and combined into one large list of blocked domains.
 

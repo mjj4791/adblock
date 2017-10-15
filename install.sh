@@ -85,13 +85,13 @@ f_remove() {
 
     if [[ "$rmconfig" == "y" || "$rmconfig" == "Y" ]]; then
         echo Removing config files...
-        rm -rf "$confdir/*" 2>/dev/null
-        rm -rf "$confdir/lists/*" 2>/dev/null
-        rm -rf "$adb_dnshidedir/*" 2>/dev/null
+        rm -rf $confdir/* 2>/dev/null
+        rm -rf $confdir/lists/* 2>/dev/null
+        rm -rf $adb_dnshidedir/* 2>/dev/null
         
-        rmdir "$adb_dnshidedir" 2>/dev/null
-        rmdir "$confdir/lists/" 2>/dev/null
-        rmdir "$confdir" 2>/dev/null
+        rmdir $adb_dnshidedir 2>/dev/null
+        rmdir $confdir/lists/ 2>/dev/null
+        rmdir $confdir 2>/dev/null
     fi
     echo Adblock removed.
 }
@@ -107,4 +107,3 @@ case "$1" in
     *)
         f_usage
 esac
-

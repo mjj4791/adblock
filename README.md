@@ -24,7 +24,7 @@ The adblocker supports many blocklists by default, you are able to enable or dis
 The following blocklists can be consumed at this moment in time:
 * [AdAway](https://adaway.org/)
 * [AdGuard](https://github.com/AdguardTeam/AdguardDNS)
-* [Disconnect]9https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt)
+* [Disconnect](https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt)
 * [Dshield](https://secure.dshield.org/suspicious_domains.html)
 * [Easylist](https://easylist.to/)
   * generic
@@ -58,7 +58,7 @@ The following blocklists can be consumed at this moment in time:
 
 
 #### Whitelist
-Using the whitelist, you are able to whitelist domains that are blocked by one or more of the dowloaded blocklists. The domains listed in the whitelist will not get blocked; the whitelist gets applied after all blocklists are downaloded and combined inti one big blocklist.
+Using the whitelist, you are able to whitelist domains that are blocked by one or more of the dowloaded blocklists. The domains listed in the whitelist will not get blocked; the whitelist gets applied after all blocklists are downaloded and combined into one big blocklist.
 
 The whitelist is located in `/etc/adblock/adblock.whitelist`. Domains you want to whitelist can be added one domain per line.
 
@@ -135,10 +135,7 @@ for each source, configure the following parameters:
 * **enabled\__source_** : enable (1) or disable (0) this source blocklist
 * **adb\_src\__source_** : the url to download the blocklist for this source
 * **adb\_src\_rset\__source_** : an `awk`  comattible command to transform the lines in the source file into a clean list of domain names (one name per row).
-* **enabled\__source_=1
-* **adb\_src\__source_='https://adaway.org/hosts.txt'
-adb_src_rset_\adaway='{sub(/\r$/,"")};$0 ~/^127\.0\.0\.1[ \t]+([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($2)}'
-adb_src_desc_adaway=enabled_adaway=1
-adb_src_adaway='https://adaway.org/hosts.txt'
-adb_src_rset_adaway='{sub(/\r$/,"")};$0 ~/^127\.0\.0\.1[ \t]+([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($2)}'
-adb_src_desc_
+* **enabled\__source_** : enable (1) or disable (0) this source
+* **adb\_src\__source_** : url to download the source data
+* **adb\_src\_rset\__source_** : an `awk` compatible command to transform='{sub(/\r$/,"")};$0 ~/^127\.0\.0\.1[ \t]+([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($2)}'
+* **adb\_src\_desc\__source_** : a textual description for this source

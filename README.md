@@ -1,23 +1,6 @@
 # adblock
 DNS based adblocker for linux/dnsmasq
 
-
-## Usage
-The adblock process must be executed as root user (or using sudo).
-
-`  sudo /usr/bin/adblock [command] [parameters]`
-
-where <command> (optional):
-* **start** : Start adblocking
-* **stop** : Stop adblocking (remove all blocked domains)
-* **status** : Show start/stop status
-* **reload** : Reload all downloaded blocklists and reapply the whitelisted sites.
-* **suspend** : Temporarily suspend adblocking.
-* **resume** : Resume adblocking.
-* **query** : Query adblock lists for domain name. Parameter: domain name
-* **help** : Show this help.
-* _else_ : Download and use all blacklists.
-
 #### Blocklists
 The adblocker supports many blocklists by default, you are able to enable or disable them in the configuration, see **Configuration** below.
 
@@ -65,6 +48,23 @@ The whitelist is located in `/etc/adblock/adblock.whitelist`. Domains you want t
 #### Blacklist
 The blacklist is located in `/etc/adblock/adblock.blacklist`. Domains you want to blacklist manually can be added one domain per line.
 On order for the blacklist to be considered, you bave to enable the blacklist and add the blacklist file as a source in the `adb_sources`  setting (see below).
+
+
+## Usage
+The adblock process must be executed as root user (or using sudo).
+
+`  sudo /usr/bin/adblock [command] [parameters]`
+
+where <command> (optional):
+* **start** : Start adblocking
+* **stop** : Stop adblocking (remove all blocked domains)
+* **status** : Show start/stop status
+* **reload** : Reload all downloaded blocklists and reapply the whitelisted sites.
+* **suspend** : Temporarily suspend adblocking.
+* **resume** : Resume adblocking.
+* **query** : Query adblock lists for domain name. Parameter: domain name
+* **help** : Show this help.
+* _else_ : Download and use all blacklists.
 
 ## Installation
 * download all files in this repositiry

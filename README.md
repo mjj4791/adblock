@@ -18,6 +18,59 @@ where <command> (optional):
 * **help** : Show this help.
 * _else_ : Download and use all blacklists.
 
+#### Blocklists
+The adblocker supports many blocklists by default, you are able to enable or disable them in the configuration, see **Configuration** below.
+
+The following blocklists can be consumed at this moment in time:
+* [AdAway](https://adaway.org/)
+* [AdGuard](https://github.com/AdguardTeam/AdguardDNS)
+* [Disconnect]9https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt)
+* [Dshield](https://secure.dshield.org/suspicious_domains.html)
+* [Easylist](https://easylist.to/)
+  * generic
+  * dutch
+  * german
+  * polish
+  * romanian
+  * russian
+  * chinese
+  * fanboy: Fanboy's Annoyances (blocks in-page pop-ups, social media and related widgets, and other annoyances)
+  * malware domain list
+* [Feodo Tracker](https://feodotracker.abuse.ch/)
+* [hpHosts](https://hosts-file.net/)
+* [malwaredomains](https://mirror.cedia.org.ec/malwaredomains)
+* [openPhish](https://openphish.com)
+* [Peter Lowe's list](http://pgl.yoyo.org/adservers/)
+* [Randsomeware tracker](https://ransomwaretracker.abuse.ch/)
+* [Secure mecca](http://securemecca.com/)
+* [Shalla](http://www.shallalist.de)
+* [Spam404](https://github.com/Dawsey21/Lists)
+* [Steve Black](https://github.com/StevenBlack/hosts)
+  * [Spotify Ads](https://github.com/StevenBlack/hosts/tree/master/data/SpotifyAds)
+  * [Gambling](https://github.com/StevenBlack/hosts/tree/master/extensions/gambling)
+  * [tyzbit](https://github.com/StevenBlack/hosts/tree/master/data/tyzbit)
+* [sysctl](http://sysctl.org/cameleon/)
+* [whocares](http://someonewhocares.org/hosts)
+* [WindowsSpyBlocker](https://github.com/crazy-max/WindowsSpyBlocker/tree/master/data/hosts/win10)
+* [winhelp2002](http://winhelp2002.mvps.org/)
+* [yoyo](https://pgl.yoyo.org/adservers/)
+* [ZeusTracker](https://zeustracker.abuse.ch)
+
+
+#### Whitelist
+Using the whitelist, you are able to whitelist domains that are blocked by one or more of the dowloaded blocklists. The domains listed in the whitelist will not get blocked; the whitelist gets applied after all blocklists are downaloded and combined inti one big blocklist.
+
+The whitelist is located in `/etc/adblock/adblock.whitelist`. Domains you want to whitelist can be added one domain per line.
+
+#### Blacklist
+The blacklist is located in `/etc/adblock/adblock.blacklist`. Domains you want to blacklist manually can be added one domain per line.
+On order for the blacklist to be considered, you bave to enable the blacklist and add the blacklist file as a source in the `adb_sources`  setting (see below).
+
+## Installation
+* download all files in this repositiry
+* install by executing:
+
+`  sudo ./install.sh install`
 
 ### Cron
 To run the adblock update process you can add it into cron, for example:
@@ -31,12 +84,6 @@ in this file add:
   1  6 *   *   *   root  /usr/bin/adblock >/dev/null 2>&1
  ```
 
-## Installation
-* download all files in this repositiry
-* install by executing:
-
-`  sudo ./install.sh install`
-  
 ## Remove
 * goto /etc/adblock
 * remove by executing

@@ -1,5 +1,12 @@
 # adblock
-DNS based adblocker for linux/dnsmasq
+DNS based adblocker. Adblck is extensible:
+* add your own blocklists
+* add your own targets
+
+adblock can currently generate blocklists for:
+* dnsmasq
+* (windows/\*nix) hosts file
+* plain text file
 
 ### Blocklists
 The adblocker supports many blocklists by default, you are able to enable or disable them in the configuration, see [Configuration](#configuration) below.

@@ -102,8 +102,8 @@ All configuration is located in `/etc/adblock/adblock.conf`.
 * **adb_minspace** : the minimum diskpase required for adblock to start downloading and processing. Specified in 1K or 512 byte blocks, see `man df` to see which will be used on your system.
 * **adb_targets** : a space separated list of all targets to execute
   * **file** : this is the default target (as part of adblock itself)
-  * **_other_** : add any other target defined in this config file (see _adding targets_)
-* **adb_sources** : a space separated list of all suorces to use for downloading all blocklists (see _adding sources_)
+  * **_other_** : add any other target defined in this config file (see [adding targets](#adding-targets))
+* **adb_sources** : a space separated list of all suorces to use for downloading all blocklists (see [adding sources](#adding-sources)
 
 ### Adding Targets
 You can add multiple targets in the adblock config file. An output file of the blocked domains will we created for each target specifically, based on the created list of blocked domain names.

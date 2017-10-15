@@ -1,5 +1,8 @@
 #!/bin/bash
 ################################
+# Version 20171013
+# - multiple targets
+################################
 # Version 20170910
 # - improved logging
 ################################
@@ -41,12 +44,12 @@ adb_tldcompression=1
 adb_log2file=1
 
 ################################
-adb_scriptver="20170905"
+adb_scriptver="20171013"
 adb_pid=${$}
 adb_action=$1
 adb_confdir=/etc/adblock
 adb_conffile=${adb_confdir}/adblock.conf 
-adb_pidfile=/var/run/adblock_update.pid
+adb_pidfile=/var/run/adblock.pid
 
 adb_listsdir=${adb_confdir}/lists
 
@@ -55,20 +58,10 @@ adb_blacklist=${adb_confdir}/adblock.blacklist
 adb_whitelist_rset="\$1 ~/^([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower(\$1)}"
 adb_logfile=/var/log/adblock.log
 
-########################
-# for dnsmasq:
-adb_dnsdir=/etc/dnsmasq.d
-adb_dnshidedir=${adb_dnsdir}/.adb_hidden
-adb_dnsformat='{ print "local=/"$0"/" }'
-#===========
-adb_dnsfilename=adblock.conf
-adb_dnsfile=${adb_dnsdir}/${adb_dnsfilename}
-adb_dnshidefile=${adb_dnshidedir}/adblock.conf
-adb_restart=dnsmasq
-
 #===========
 # default config (if no $adb_conffile exists)...
 adb_sources='adaway'
+adb_targets='file'
 
 enabled_adaway=1
 adb_src_adaway='https://adaway.org/hosts.txt'
@@ -79,6 +72,16 @@ enabled_blacklist=0
 adb_src_blacklist="${adb_blacklist}"
 adb_src_rset_blacklist='{sub(/\r$/,"")};$1 ~/^([A-Za-z0-9_-]+\.){1,}[A-Za-z]+/{print tolower($1)}'
 adb_src_desc_blacklist='Manual blocklist'
+
+# target: file
+target_file_enabled=1
+target_file_detect=
+target_file_format='{ print $0 }'
+target_file_filename=blocklist.conf
+target_file_dir=/tmp
+target_file_hidedir=
+target_file_restart=
+target_file_pid=
 #===========
 
 ##########################################
@@ -154,9 +157,9 @@ f_envcheck() {
     adb_tmpdir="$(mktemp -p /tmp -d)"
     adb_tmpfile="$(mktemp -p ${adb_tmpdir} -tu)"
     adb_tmpfile2="$(mktemp  -p ${adb_tmpdir} -tu)"
-    mkdir -p "${adb_dnshidedir}" 2>&1 >/dev/null
-    mkdir -p "${adb_confdir}" 2>&1 >/dev/null
-    mkdir -p "${adb_listsdir}" 2>&1 >/dev/null
+    
+    mkdir -p "${adb_confdir}" >/dev/null 2>&1 
+    mkdir -p "${adb_listsdir}" >/dev/null 2>&1 
     if [ -n "${adb_tmpdir}" ] && [ -d "${adb_tmpdir}" ]; then
         f_space "${adb_tmpdir}"
         if [ "${space_ok}" = "false" ]; then
@@ -174,6 +177,19 @@ f_envcheck() {
         f_error "Temp directory not found ('${adb_tmpdir}')!"
         f_exit
     fi
+    
+    # create hidedirs, if needed
+    for target in ${adb_targets}
+    do
+        eval "enabled=\"\${target_${target}_enabled}\""
+        eval "hidedir=\"\${target_${target}_hidedir}\""
+        
+        if [ $enabled -eq 1 ]; then
+            if [ "X$hidedir" != "X" ]; then
+                mkdir -p "${adb_dnshidedir}" >/dev/null 2>&1 
+            fi
+        fi
+    done
     
     # check whitelist entries
     #
@@ -205,14 +221,28 @@ f_rmtmp() {
     rm -rf "${adb_tmpdir}/*" 2>&1 >/dev/null
 	rmdir "${adb_tmpdir}" 2>&1 >/dev/null
 }
+
 # f_rmdns: remove all created dns files
 f_rmdns() {
-    rm -f "${adb_dnsfile}.bak" 2>&1 >/dev/null
-    rm -f "${adb_dnsfile}" 2>&1 >/dev/null
-    if [ -d "${adb_dnshidedir}" ]; then
-         rm -f "${adb_dnshidedir}/*" 2>&1 >/dev/null
-         rmdir "${adb_dnshidedir}" 2>&1 >/dev/null
-    fi
+    local target filename dir hidedir file
+    
+    for target in ${adb_targets}
+    do
+        eval "filename=\"\${target_${target}_filename}\""
+        eval "dir=\"\${target_${target}_dir}\""
+        eval "hidedir=\"\${target_${target}_hidedir}\""
+        
+        file=$dir/$filename
+        
+        rm -f "${file}.bak" 2>&1 >/dev/null
+        rm -f "${file}" 2>&1 >/dev/null
+        if [ -d "${hidedir}" ]; then
+             rm -f "${hidedir}/*" 2>&1 >/dev/null
+             rmdir "${hidedir}" 2>&1 >/dev/null
+        fi
+
+    done
+
 }
 
 
@@ -235,15 +265,23 @@ f_exit() {
 }
 
 # f_revertconfig: reject the new config file and revert the previous one
+# $1=target name
 f_revertconfig() {
-    if [ -f "${adb_dnsfile}.bak" ]; then
-        f_warning "Rejecting current ${adb_restart} config (moving ${adb_dnsfile} to ${adb_dnsfile}.err)..."
-        mv "${adb_dnsfile}" "${adb_dnsfile}.err" 2>&1 >/dev/null
-        f_info "Reverting ${adb_restart} config to previous settings (moving ${adb_dnsfile}.bak to ${adb_dnsfile})..."
-        mv "${adb_dnsfile}.bak" "${adb_dnsfile}" 2>&1 >/dev/null
-        f_info "Config reverted."
+    local target file restart pid
+    target=$1
+    
+    eval "file=\"\${target_${target}_file}\""
+    eval "restart=\"\${target_${target}_restart}\""
+    eval "pid=\"\${target_${target}_pid}\""
+    
+    if [ -f "${file}.bak" ]; then
+        f_warning "Rejecting current ${target} config (moving ${file} to ${file}.err)..."
+        mv "${file}" "${file}.err" 2>&1 >/dev/null
+        f_info "Reverting ${target} config to previous settings (moving ${file}.bak to ${file})..."
+        mv "${file}.bak" "${file}" 2>&1 >/dev/null
+        f_info "$target config reverted."
     else
-        f_error "Unable to revert config; configbackup file not found (${adb_dnsfile}.bak)!" 1
+        f_error "Unable to revert $target config; configbackup file not found (${file}.bak)!" 1
     fi
 }
 
@@ -259,104 +297,164 @@ f_tldcompression() {
 
 # f_switch: suspend/resume adblock processing
 f_switch() {
-    local source target status mode="${1}"
+    local target hidedir dir filename file srcfile destination status mode="${1}"
     
-    if [ -d "${adb_dnshidedir}" ]; then
-        if [ -s "${adb_dnsfile}" ] && [ "${mode}" = "suspend" ]; then
-            source="${adb_dnsfile}"
-            target="${adb_dnshidedir}"
-            status="suspended"
-        elif [ -s "${adb_dnshidefile}" ] && [ "${mode}" = "resume" ]; then
-            source="${adb_dnshidefile}"
-            target="${adb_dnsdir}"
-            status="resumed"
+    
+    for target in ${adb_targets}
+    do
+        eval "hidedir=\"\${target_${target}_hidedir}\""
+        eval "dir=\"\${target_${target}_dir}\""
+        eval "filename=\"\${target_${target}_filename}\""
+        
+        file=$dir/$filename
+        hidefile=$hidedir/$filename
+        
+        if [ "X${hidedir}" != "X" ]; then
+            if [ -d "${hidedir}" ]; then
+                if [ -s "${file}" ] && [ "${mode}" = "suspend" ]; then
+                    srcfile="${file}"
+                    destination="${hidedir}"
+                    status="suspended"
+                elif [ -s "${hidefile}" ] && [ "${mode}" = "resume" ]; then
+                    srcfile="${hidefile}"
+                    destination="${dir}"
+                    status="resumed"
+                fi
+                if [ -n "${status}" ]; then
+                    mv -f "${srcfile}" "${destination}"
+                    f_restartservice $target
+                    f_info "Adblock processing for $target ${status}" 1
+                fi
+            fi
         fi
-        if [ -n "${status}" ]; then
-            mv -f "${source}" "${target}"
-            f_restartservice
-            f_info "Adblock processing ${status}" 1
-        fi
-    fi
+    done
 }
 
 # f_status: query adblock status
 f_status() {
-    if [ -s "${adb_dnsfile}" ]; then
-        status="started"
-    elif [ -s "${adb_dnshidefile}" ]; then
-        status="suspended"
-    else
-        status="stopped"
-    fi
+    local target file filename dir hidedir hidefile
     
-    f_info "Adblock status is: ${status}." 1
-    
-    if [ "X${status}" == "Xstarted" ]; then
-        count="$(cat "${adb_dnsfile}" | wc -l)"
-        f_info "   $count domains blocked." 1
-    fi
+    for target in ${adb_targets}
+    do
+        eval "filename=\"\${target_${target}_filename}\""
+        eval "dir=\"\${target_${target}_dir}\""
+        eval "hidedir=\"\${target_${target}_hidedir}\""
+        
+        file=$dir/$filename
+        hidefile=$hidedir/$filename
+        
+        if [ -s "${file}" ]; then
+            status="started"
+        elif [ -s "${hidefile}" ]; then
+            status="suspended"
+        else
+            status="stopped"
+        fi
+        
+        f_info "Adblock status for $target is: ${status}." 1
+        if [ "X${status}" == "Xstarted" ]; then
+            count="$(cat "${file}" | wc -l)"
+            f_info "   $count domains blocked." 1
+        fi
+    done
 }
 
 # f_query: query block list for certain (sub-)domains
 f_query() {
-    local search result cnt
+    local search result cnt filename dir file
     local domain="${1}"
     local tld="${domain#*.}"
 
-    if [ ! -s "${adb_dnsfile}" ]; then
-         printf "%s\n" "::: no active block list found, please start / resume adblock first"
-    elif [ -z "${domain}" ] || [ "${domain}" = "${tld}" ]; then
-        printf "%s\n" "::: invalid domain input, please submit a specific (sub-)domain, e.g. 'www.abc.xyz'"
-    else
-        cd "${adb_dnsdir}"
-        while [ "${domain}" != "${tld}" ]
-        do
-            search="${domain//./\.}"
-            result="$(grep -Hm5 "[/\"\.]${search}[/\"]" "${adb_dnsfilename}" | awk -F ':|=|/|\"' '{printf("  + %s\n",$4)}')"
-            printf "%s\n" "::: results for (sub-)domain '${domain}' (max. 5)"
-            printf "%s\n" "${result:="  - no match"}"
-            domain="${tld}"
-            tld="${domain#*.}"
-        done
-    fi
+    for target in ${adb_targets}
+    do
+        eval "filename=\"\${target_${target}_filename}\""
+        eval "dir=\"\${target_${target}_dir}\""
+        file=$dir/$filename
+        
+        if [ ! -s "${file}" ]; then
+            printf "%s\n" "::: $target: no active block list found, please start / resume adblock first" 1
+        elif [ -z "${domain}" ] || [ "${domain}" = "${tld}" ]; then
+            printf "%s\n" "::: $target: invalid domain input, please submit a specific (sub-)domain, e.g. 'www.abc.xyz'" 1
+        else
+            cd "${dir}"
+            while [ "${domain}" != "${tld}" ]
+            do
+                search="${domain//./\.}"
+                result="$(grep -Hm5 "[/\"\.]${search}[/\"]" "${filename}" | awk -F ':|=|/|\"' '{printf("  + %s\n",$4)}')"
+                printf "%s\n" "::: $target: results for (sub-)domain '${domain}' (max. 5)"
+                printf "%s\n" "${result:="  - no match"}"
+                domain="${tld}"
+                tld="${domain#*.}"
+            done
+        fi
+    done
+}
+
+# f_restartservices: restart all configured targets
+f_restartservices() {
+    for target in ${adb_targets}
+    do
+        f_restartservice $target
+    done
 }
 
 # f_restartservice: restart dns service
 f_restartservice() {
+    local target WAIT  enabled detect restart pid
+    
+    target=$1
     WAIT=10s
-    f_info "Restarting ${adb_restart} service..." 1
-    service ${adb_restart} restart > /dev/null 2>&1
-    f_info "Waiting $WAIT for ${adb_restart} to initialize..." 1
-    sleep $WAIT
+    f_info "Restarting ${target} service..." 1
     
-    if [ "${adb_restart}" == "bind9" ]; then
-        PID=`pidof named`
-    else
-        PID=`pidof dnsmasq`
-    fi
+    eval "enabled=\"\${target_${target}_enabled}\""
+    eval "detect=\"\${target_${target}_detect}\""
+    eval "restart=\"\${target_${target}_restart}\""
+    eval "pid=\"\${target_${target}_pid}\""
     
-    if [ "x$PID" != "x" ]; then
-        #restarted ok
-        f_info "${adb_restart} restarted and running with pid $PID." 1
-    else
-        rc=200
-        f_error "${adb_restart} not running; reverting to old config!"
-        f_revertconfig
-        service ${adb_restart} restart > /dev/null 2>&1
-        f_info "Waiting $WAIT for ${adb_restart} to initialize..." 1
-        sleep $WAIT
-        if [ "${adb_restart}" == "bind9" ]; then
-            #echo pidof named
-            PID=`pidof named`
+    if [ $enabled -eq 1 ]; then
+        if [ "X$detect" != "X" ]; then
+            $detect  >/dev/null 2>&1
+            if [ $? -eq 0 ]; then
+                continue=1
+            else
+                f_warning "$target not detected (has it been installed?)..." 1
+                continue=0
+            fi
         else
-            #pidof dnsmasq
-            PID=`pidof dnsmasq`
+            continue=1
         fi
-        if [ "x$PID" != "x" ]; then
-            #bind is running
-            f_info "${adb_restart} reverted, restarted and running with pid $PID." 1
-        else
-            f_error "${adb_restart} reverted, but still NOT RUNNING!" 1
+        if [ $continue -eq 1 ]; then
+        
+            if [ "X$restart" != "X" ]; then
+                $restart >/dev/null 2>&1
+                
+                if [ "X$pid" != "X" ]; then
+                    f_info "Waiting $WAIT for ${target} to initialize..." 1
+                    sleep $WAIT
+                    
+                    PID=`$pid`
+                    if [ "x$PID" != "x" ]; then
+                        #restarted ok
+                        f_info "${target} restarted and running with pid $PID." 1
+                    else
+                        rc=200
+                        f_error "${target} not running; reverting to old config!"
+                        f_revertconfig $target
+                        $restart >/dev/null 2>&1
+                        
+                        f_info "Waiting $WAIT for ${target} to initialize..." 1
+                        sleep $WAIT
+                        
+                        PID=`$pid`
+                        if [ "x$PID" != "x" ]; then
+                            #target is running
+                            f_info "${target} reverted, restarted and running with pid $PID." 1
+                        else
+                            f_error "${target} reverted, but still NOT RUNNING!" 1
+                        fi
+                    fi
+                fi
+            fi
         fi
     fi
 }
@@ -470,6 +568,58 @@ f_download() {
     done
 }
 
+# f_create_target create output file for a configured target
+# $target target name
+# $adb_tmpfile source file of blocked dnsnames
+f_create_target() {
+    local target source enabled detect format dir filename file
+    target=$1
+    source=$2
+    f_info  "Creating target: $target..." 1
+    
+    eval "enabled=\"\${target_${target}_enabled}\""
+    eval "detect=\"\${target_${target}_detect}\""
+    eval "format=\"\${target_${target}_format}\""
+    eval "filename=\"\${target_${target}_filename}\""
+    eval "dir=\"\${target_${target}_dir}\""
+    
+    file=$dir/$filename
+    
+    if [ $enabled -eq 1 ]; then
+        if [ "X$detect" != "X" ]; then
+            $detect  >/dev/null 2>&1
+            if [ $? -eq 0 ]; then
+                continue=1
+            else
+                f_warning "$target not detected (has it been installed?)..." 1
+                continue=0
+            fi
+        else
+            continue=1
+        fi
+        if [ $continue -eq 1 ]; then
+            # empty tmp file:
+            > "$adb_tmpfile2"
+            count2="$(cat "${source}" | awk "${format}" | tee "${adb_tmpfile2}" | wc -l)"
+            
+            if [ $count -ne $count2 ]; then
+                rc=252
+                f_error "   Error creating target (check variable target_$target_format); dns entries lost while formatting ($count2<>$count)!"
+                f_exit
+            else
+                f_info "   replacing ${target} blocklistdomains processed; ${file}..."        
+                if [ -f "${adb_tmpfile2}" ]; then
+                    if [ -f "${file}" ]; then
+                        mv "${file}" "${file}.bak" 2>&1 >/dev/null
+                    fi
+                    mv "${adb_tmpfile2}" "${file}" 2>&1 >/dev/null
+                fi
+                f_restartservice $target
+            fi
+        fi
+    fi
+} 
+
 # f_process: process all stored list into one blocklistdomains
 f_process() {
     # Combine all downloaded lists into one global block list 
@@ -493,23 +643,12 @@ f_process() {
             f_tldcompression "${adb_tmpfile2}"
             count=$(cat ${adb_tmpfile} | wc -l)
         fi
-        f_info "   $count domains blocked; creating bind zone file..."
-        count2="$(cat "${adb_tmpfile}" | awk "${adb_dnsformat}" | tee "${adb_tmpfile2}" | wc -l)"
+        f_info "   $count domains blocked; creating target files..."
         
-        if [ $count -ne $count2 ]; then
-            rc=252
-            f_error "   Error creating zonefile (check variable adb_dnsformat); dns record lost while formatting ($count2<>$count)!"
-            f_exit
-        else
-            f_info "   changing ${adb_restart} blocklistdomains processed; ${adb_dnsfile}..."
-            if [ -f "${adb_dnsfile}" ]; then
-                mv "${adb_dnsfile}" "${adb_dnsfile}.bak" 2>&1 >/dev/null
-            fi
-            if [ -f "${adb_tmpfile2}" ]; then
-                mv "${adb_tmpfile2}" "${adb_dnsfile}" 2>&1 >/dev/null
-            fi
-            f_restartservice
-        fi
+        for target in ${adb_targets}
+        do
+            f_create_target $target $adb_tmpfile 
+        done
     else
         rc=253
         f_error "Combined file is empty!"
@@ -584,7 +723,7 @@ case "${adb_action}" in
     stop)
         f_info "Stopping adblock..." 1
         f_rmdns
-        f_restartservice
+        f_restartservices
         ;;
     reload)
         f_process

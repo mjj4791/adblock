@@ -1,5 +1,9 @@
 #!/bin/bash
 ################################
+# Version 20171015
+# - suppress restart message if 
+#   no restart is performed
+################################
 # Version 20171013
 # - multiple targets
 ################################
@@ -44,7 +48,7 @@ adb_tldcompression=1
 adb_log2file=1
 
 ################################
-adb_scriptver="20171013"
+adb_scriptver="20171015"
 adb_pid=${$}
 adb_action=$1
 adb_confdir=/etc/adblock
@@ -215,11 +219,11 @@ f_space() {
 
 # f_rmtmp: remove temporary files
 f_rmtmp() {
-    rm -f "${adb_tmpfile}" 2>&1 >/dev/null
-    rm -f "${adb_tmpfile2}" 2>&1 >/dev/null
-	rm -f "${adb_tmpdir}/tmp.whitelist" 2>&1 >/dev/null
-    rm -rf "${adb_tmpdir}/*" 2>&1 >/dev/null
-	rmdir "${adb_tmpdir}" 2>&1 >/dev/null
+    rm -f "${adb_tmpfile}" >/dev/null 2>&1 
+    rm -f "${adb_tmpfile2}" >/dev/null 2>&1 
+	rm -f "${adb_tmpdir}/tmp.whitelist" >/dev/null 2>&1 
+    rm -rf "${adb_tmpdir}/*" >/dev/null 2>&1 
+	rmdir "${adb_tmpdir}" >/dev/null 2>&1 
 }
 
 # f_rmdns: remove all created dns files
@@ -234,11 +238,11 @@ f_rmdns() {
         
         file=$dir/$filename
         
-        rm -f "${file}.bak" 2>&1 >/dev/null
-        rm -f "${file}" 2>&1 >/dev/null
+        rm -f "${file}.bak" >/dev/null 2>&1 
+        rm -f "${file}" >/dev/null 2>&1 
         if [ -d "${hidedir}" ]; then
-             rm -f "${hidedir}/*" 2>&1 >/dev/null
-             rmdir "${hidedir}" 2>&1 >/dev/null
+             rm -f "${hidedir}/*" >/dev/null 2>&1 
+             rmdir "${hidedir}" >/dev/null 2>&1 
         fi
 
     done
@@ -276,9 +280,9 @@ f_revertconfig() {
     
     if [ -f "${file}.bak" ]; then
         f_warning "Rejecting current ${target} config (moving ${file} to ${file}.err)..."
-        mv "${file}" "${file}.err" 2>&1 >/dev/null
+        mv "${file}" "${file}.err" >/dev/null 2>&1 
         f_info "Reverting ${target} config to previous settings (moving ${file}.bak to ${file})..."
-        mv "${file}.bak" "${file}" 2>&1 >/dev/null
+        mv "${file}.bak" "${file}" >/dev/null 2>&1 
         f_info "$target config reverted."
     else
         f_error "Unable to revert $target config; configbackup file not found (${file}.bak)!" 1
@@ -404,7 +408,6 @@ f_restartservice() {
     
     target=$1
     WAIT=10s
-    f_info "Restarting ${target} service..." 1
     
     eval "enabled=\"\${target_${target}_enabled}\""
     eval "detect=\"\${target_${target}_detect}\""
@@ -426,6 +429,7 @@ f_restartservice() {
         if [ $continue -eq 1 ]; then
         
             if [ "X$restart" != "X" ]; then
+                f_info "Restarting ${target} service..." 1
                 $restart >/dev/null 2>&1
                 
                 if [ "X$pid" != "X" ]; then
@@ -472,7 +476,7 @@ f_download() {
         if [ "${enabled}" = "0" ]; then
             # disabled list; clean up:
             if [ -f  "${adb_listsdir}/${src_name}" ]; then
-                rm -f "${adb_listsdir}/${src_name}" 2>&1 > /dev/null
+                rm -f "${adb_listsdir}/${src_name}" >/dev/null 2>&1 
                 f_info "=> Disabled source '${src_name}' and removed cached list (${adb_listsdir}/${src_name})."
             fi
             continue
@@ -490,7 +494,7 @@ f_download() {
 
         # download only block list with newer/updated timestamp
         #
-        rm -f "${adb_tmpfile}" 2>&1 > /dev/null
+        rm -f "${adb_tmpfile}" >/dev/null 2>&1 
         if [ "${src_name}" == "blacklist" ]; then
             if [ -s "${url}" ]; then
                 cat ${url} > "${adb_tmpfile}"
@@ -536,7 +540,7 @@ f_download() {
         # check download result and prepare domain output
         #
         if [ $((rc)) -eq 0 ] && [ -s "${adb_tmpfile}" ]; then
-            rm -f "${adb_tmpfile2}" 2>&1 > /dev/null
+            rm -f "${adb_tmpfile2}" >/dev/null 2>&1 
             count="$(cat "${adb_tmpfile}" | awk "${src_rset}" | tee "${adb_tmpfile2}" | wc -l)"
             
             f_info "   source download finished (${count} entries)"
@@ -610,9 +614,9 @@ f_create_target() {
                 f_info "   replacing ${target} blocklistdomains processed; ${file}..."        
                 if [ -f "${adb_tmpfile2}" ]; then
                     if [ -f "${file}" ]; then
-                        mv "${file}" "${file}.bak" 2>&1 >/dev/null
+                        mv "${file}" "${file}.bak" >/dev/null 2>&1 
                     fi
-                    mv "${adb_tmpfile2}" "${file}" 2>&1 >/dev/null
+                    mv "${adb_tmpfile2}" "${file}" >/dev/null 2>&1 
                 fi
                 f_restartservice $target
             fi
@@ -625,7 +629,7 @@ f_process() {
     # Combine all downloaded lists into one global block list 
     # remove duplicate entries
     f_info  "Loading blocklists..." 1
-    rm -f "${adb_tmpfile}" 2>&1 >/dev/null
+    rm -f "${adb_tmpfile}" >/dev/null 2>&1 
     if [ -s "${adb_tmpdir}/tmp.whitelist" ]; then
         f_info "Combining all downloaded blocklists into a combined blacklist and whitelisting..."
         count=$(cat ${adb_listsdir}/* | sort -u | grep -vf "${adb_tmpdir}/tmp.whitelist" | tee "${adb_tmpfile}" | wc -l)
@@ -638,7 +642,7 @@ f_process() {
     if [ $count -ne 0 ]; then
         if [ "X${adb_tldcompression}" = "X1" ]; then
             f_info "   $count domains blocked; executing tldcompression..."
-            mv -f "${adb_tmpfile}" "${adb_tmpfile2}" 2>&1 >/dev/null
+            mv -f "${adb_tmpfile}" "${adb_tmpfile2}" >/dev/null 2>&1 
             > "${adb_tmpfile}"
             f_tldcompression "${adb_tmpfile2}"
             count=$(cat ${adb_tmpfile} | wc -l)

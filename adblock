@@ -1,33 +1,19 @@
 #!/bin/bash
 ################################
-# Version 20171015
-# - suppress restart message if 
-#   no restart is performed
-################################
-# Version 20171013
-# - multiple targets
-################################
-# Version 20170910
-# - improved logging
-################################
-# Version 20170905
-# - added start, stop and status commands
-################################
-# Version 20179101
-# - integrated into one script
-# - config in /etc/adblock
-################################
-# Version 20170822
-# - add tld compression
-################################
-# Version 20160624
-# - whitelisting done on combined list and no longer on downloaded lists
-#   (therefore it also whitelists dns entries present in the previous run, 
-#   for which the list is now unchanged (and not downloaded))
-################################
-# Version 20160623
-# - fixed not working include when run from cron.daily (must use cron.d)!
-#
+# Version   Changes
+# ==============================
+# 20171017  - added logfile rotation/backup
+# 20171015  - suppress restart message if no restart is performed
+# 20171013  - multiple targets
+# 20170910  - improved logging
+# 20170905  - added start, stop and status commands
+# 20179101  - integrated into one script
+#           - config in /etc/adblock
+# 20170822  - add tld compression
+# 20160624  - whitelisting done on combined list and no longer on downloaded lists
+#            (therefore it also whitelists dns entries present in the previous run, 
+#             for which the list is now unchanged (and not downloaded))
+# 20160623  - fixed not working include when run from cron.daily (must use cron.d)!
 ################################
 
 
@@ -48,7 +34,7 @@ adb_tldcompression=1
 adb_log2file=1
 
 ################################
-adb_scriptver="20171015"
+adb_scriptver="20171017"
 adb_pid=${$}
 adb_action=$1
 adb_confdir=/etc/adblock
@@ -133,6 +119,7 @@ f_log() {
 # f_envcheck: check/prepare environment
 f_envcheck() {
     if [ ${adb_log2file} -eq 1 ]; then
+        mv "${adb_logfile}" "${adb_logfile}.1" >/dev/null 2>&1
         > "${adb_logfile}"
     fi
     # start normal processing/logging

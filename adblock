@@ -126,12 +126,6 @@ f_envcheck() {
     #
     f_info "Adblock (Version ${adb_scriptver}, $(/bin/date "+%d.%m.%Y %H:%M:%S"))" 1
 
-    # check dnsmasq
-    if [ ! -d $adb_dnsdir ]; then
-        f_error "Dnsmasq not found ('$adb_dnsdir' not found)!"
-        f_exit
-    fi
-
     # curl parameters:
     adb_fetch=$(which curl)
     if [ "X${adb_fetch}" == "X" ]; then

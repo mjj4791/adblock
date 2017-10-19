@@ -2,6 +2,7 @@
 ################################
 # Version   Changes
 # ==============================
+# 20171019  - fixed query for all targets
 # 20171017  - added logfile rotation/backup
 # 20171015  - suppress restart message if no restart is performed
 # 20171013  - multiple targets
@@ -34,7 +35,7 @@ adb_tldcompression=1
 adb_log2file=1
 
 ################################
-adb_scriptver="20171017"
+adb_scriptver="20171019"
 adb_pid=${$}
 adb_action=$1
 adb_confdir=/etc/adblock
@@ -347,11 +348,12 @@ f_status() {
 # f_query: query block list for certain (sub-)domains
 f_query() {
     local search result cnt filename dir file
-    local domain="${1}"
-    local tld="${domain#*.}"
-
+    
     for target in ${adb_targets}
     do
+        local domain="${1}"
+        local tld="${domain#*.}"
+    
         eval "filename=\"\${target_${target}_filename}\""
         eval "dir=\"\${target_${target}_dir}\""
         file=$dir/$filename
@@ -365,9 +367,10 @@ f_query() {
             while [ "${domain}" != "${tld}" ]
             do
                 search="${domain//./\.}"
-                result="$(grep -Hm5 "[/\"\.]${search}[/\"]" "${filename}" | awk -F ':|=|/|\"' '{printf("  + %s\n",$4)}')"
+                #result="$(grep -Hm5 "[/\"\.]${search}[/\"]" "${filename}" | awk -F ':|=|/|\"' '{printf("  + %s\n",$4)}')"
+                result="$(grep -EHm5 "(^|[ /:]|\.)${search}" "${filename}" | awk -F ':' '{print $2}')" 
                 printf "%s\n" "::: $target: results for (sub-)domain '${domain}' (max. 5)"
-                printf "%s\n" "${result:="  - no match"}"
+                printf "%s\n\n" "${result:="  - no match"}"
                 domain="${tld}"
                 tld="${domain#*.}"
             done

@@ -2,6 +2,9 @@
 ################################
 # Version   Changes
 # ==============================
+# 20171029  - added disconnect blocklists (ad, malware, tracking)
+# 20171028  - fixed error in f_restartservice
+#           - updated install.sh to not replace files by default
 # 20171019  - fixed query for all targets
 # 20171017  - added logfile rotation/backup
 # 20171015  - suppress restart message if no restart is performed
@@ -416,30 +419,28 @@ f_restartservice() {
                 f_info "Restarting ${target} service..." 1
                 $restart >/dev/null 2>&1
                 
-                if [ "X$pid" != "X" ]; then
+                f_info "Waiting $WAIT for ${target} to initialize..." 1
+                sleep $WAIT
+                
+                PID=`$pid`
+                if [ "x$PID" != "x" ]; then
+                    #restarted ok
+                    f_info "${target} restarted and running with pid $PID." 1
+                else
+                    rc=200
+                    f_error "${target} not running; reverting to old config!"
+                    f_revertconfig $target
+                    $restart >/dev/null 2>&1
+                    
                     f_info "Waiting $WAIT for ${target} to initialize..." 1
                     sleep $WAIT
                     
                     PID=`$pid`
                     if [ "x$PID" != "x" ]; then
-                        #restarted ok
-                        f_info "${target} restarted and running with pid $PID." 1
+                        #target is running
+                        f_info "${target} reverted, restarted and running with pid $PID." 1
                     else
-                        rc=200
-                        f_error "${target} not running; reverting to old config!"
-                        f_revertconfig $target
-                        $restart >/dev/null 2>&1
-                        
-                        f_info "Waiting $WAIT for ${target} to initialize..." 1
-                        sleep $WAIT
-                        
-                        PID=`$pid`
-                        if [ "x$PID" != "x" ]; then
-                            #target is running
-                            f_info "${target} reverted, restarted and running with pid $PID." 1
-                        else
-                            f_error "${target} reverted, but still NOT RUNNING!" 1
-                        fi
+                        f_error "${target} reverted, but still NOT RUNNING!" 1
                     fi
                 fi
             fi

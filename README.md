@@ -14,7 +14,11 @@ The adblocker supports many blocklists by default, you are able to enable or dis
 The following blocklists can be consumed at this moment in time:
 * [AdAway](https://adaway.org/)
 * [AdGuard](https://github.com/AdguardTeam/AdguardDNS)
-* [Disconnect](https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt)
+* Disconnect
+  * [Ad](https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt)
+  * [Malware](https://s3.amazonaws.com/lists.disconnect.me/simple_malware.txt)
+  * [Tracking](https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt)
+  * [Malvertising](https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt)
 * [Dshield](https://secure.dshield.org/suspicious_domains.html)
 * [Easylist](https://easylist.to/)
   * generic

@@ -3,6 +3,7 @@
 # Version   Changes
 # ==============================
 # 20171029  - added disconnect blocklists (ad, malware, tracking)
+#           - add youtube ads blocklist
 # 20171028  - fixed error in f_restartservice
 #           - updated install.sh to not replace files by default
 # 20171019  - fixed query for all targets
@@ -38,7 +39,7 @@ adb_tldcompression=1
 adb_log2file=1
 
 ################################
-adb_scriptver="20171019"
+adb_scriptver="20171029"
 adb_pid=${$}
 adb_action=$1
 adb_confdir=/etc/adblock

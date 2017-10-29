@@ -47,6 +47,7 @@ The following blocklists can be consumed at this moment in time:
 * [whocares](http://someonewhocares.org/hosts)
 * [WindowsSpyBlocker](https://github.com/crazy-max/WindowsSpyBlocker/tree/master/data/hosts/win10)
 * [winhelp2002](http://winhelp2002.mvps.org/)
+* [Youtube ads](https://github.com/arthurgeron/blockYTAds)
 * [yoyo](https://pgl.yoyo.org/adservers/)
 * [ZeusTracker](https://zeustracker.abuse.ch)
 

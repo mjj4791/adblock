@@ -17,3 +17,26 @@ s0-2mdn-net.l.google.com
 postcodeloterij.nl
 marktplaats.nl
 i.imgur.com
+
+############
+# source:
+#https://github.com/HenningVanRaumle/pihole-ytadblock/blob/master/not-block-this.txt
+#video preview images
+i9.ytimg.com
+
+#when blocking this, long blackscreen before video starts, but nor sure it's in two other lists I use without issues
+googleads.g.doubleclick.net
+
+# breaks gmail
+gstatic.com
+www.gstatic.com
+
+#video won´t play
+redirector.googlevideo.com
+
+#video won´t play
+manifest.googlevideo.com
+
+#it saves your history of watched videos
+s.youtube.com
+############
